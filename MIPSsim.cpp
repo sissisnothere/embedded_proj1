@@ -216,11 +216,11 @@ void write() {
 		if(REB.front()->canWrite) {
 			RGF[REB.front()->regNum] = REB.front()->regValue;
 			REB.pop();
-			cout << " pop size is " << REB.size() << endl;
+		//	cout << " pop size is " << REB.size() << endl;
 		}
 		else
 		{
-			cout << "i cannot pop" <<endl;
+		
 		}
 	}
 }
@@ -234,12 +234,6 @@ void sync() {
 	if(!REB.empty()) {
 		REB.front()->canWrite = true;
 	}
-	if(PRB){
-		cout << "PRB sync now " << endl;
-	}
-
-
-
 }
 
 void checkRGFNum() {
@@ -310,10 +304,8 @@ void initial(queue<instruction*> &instrContainer) {
             tempfile = tempfile.substr(1, tempfile.length()-3);
         else 
             tempfile = tempfile.substr(1, tempfile.length()-2);
-        
-		//cout << tempfile << endl;
-		
-		//copy corresponding valu to memory address
+      
+		/* copy corresponding valu to memory address */
 		int value;
 		stringstream ss(tempfile);
 
@@ -324,7 +316,6 @@ void initial(queue<instruction*> &instrContainer) {
 				ss.ignore();
 		}
 		DAM[temVal[0]] = temVal[1];
-		//cout << "memory " << temVal[0] << " value is " << DAM[temVal[0]] << endl;
 		temVal.clear();
 	}
 
@@ -337,7 +328,6 @@ void initial(queue<instruction*> &instrContainer) {
             tempfile = tempfile.substr(1, tempfile.length()-3);
         else 
             tempfile = tempfile.substr(1, tempfile.length()-2);
-		//cout << tempfile << endl;
 
 		stringstream ss(tempfile);
 		int position = 0;
@@ -404,7 +394,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 	} 
 
 	//while(1)
-	for(int j = 0; j < 16; j++)
+	for(int j = 0; j < 20; j++)
 	{
 		cout << "STEP " << step++ << ":" << endl;
 		cout << "INM:";
@@ -496,12 +486,10 @@ void simulatePrint(queue<instruction*> instrContainer) {
 			
 		}
 		cout << endl;	
+		cout << endl;
 		if(isBreak) 
 			break;
-		if(INM.size() == 0)
-			isBreak = true;
-		cout << endl;
-
+		
 		decode();		/* decode will call read function */
 		issue1();
 		issue2();
@@ -517,7 +505,10 @@ void simulatePrint(queue<instruction*> instrContainer) {
 			INM.push(instrContainer.front());
 			instrContainer.pop();
 		}
-		
+	
+		if(INM.size()==0 && !INB && !AIB && !SIB && !PRB && !ADB && REB.empty())
+            isBreak = true;
+    	
 	}	
 
 	cout.rdbuf(coutbuffer);

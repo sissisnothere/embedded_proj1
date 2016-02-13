@@ -41,7 +41,10 @@ instruction* PRB;
 regValue* ADB;
 queue<instruction*> REB;
 
-int RGF[16];		//-1 means no value
+int totalRGF = 0;	//check how many RGF number
+int totalDAM = 0;	//check how many DAM number
+
+int RGF[16];		//-1000 means no value
 int DAM[16];
 
 /* decode and read one by one */
@@ -57,12 +60,12 @@ void decode() {
 		int src2 = INM.front()->src2;
 		switch(INM.front()->type)
 		{
-			case 0:		if(src1 != -1 ) /* not ST, check both src1 and src2 */
+			case 0:		if(src1 != -1000 ) /* not ST, check both src1 and src2 */
 							tempINB->src1 = read(src1);
 						else {
 							break;
 						}
-			case 1:		if(src2 != -1) { /* ST only need to check src2 */
+			case 1:		if(src2 != -1000) { /* ST only need to check src2 */
 							tempINB->src2 = read(src2);
 							INM.pop();
 						}
@@ -107,6 +110,25 @@ void write() {
 
 }
 
+void checkRGFNum() {
+	for(int i = 15; i >=0; i--)	{
+		if(RGF[i] != -1000) {
+			totalRGF = i;
+			break;
+		}
+	}
+	
+}
+
+void checkDAMNum() {
+	for(int i = 15; i >=0; i--)	{
+		if(DAM[i] != -1000) {
+			totalDAM = i;
+			break;
+		}
+	}
+}
+
 void initial(queue<instruction*> &instrContainer) {
 	ifstream regFile("registers.txt");
 	ifstream dataMMFile("datamemory.txt");
@@ -120,8 +142,8 @@ void initial(queue<instruction*> &instrContainer) {
 	/* inital register value */
 	for(int i = 0; i < 16; i++)
 	{	
-		RGF[i] = -1; 
-		DAM[i] = -1;
+		RGF[i] = -1000; 
+		DAM[i] = -1000;
 	}
 
 
@@ -271,7 +293,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		cout << "INB:";
 		if(INB != NULL)
 		{
-
+			 cout << "<" << INB->opcode << ",R" << INB->dest << "," << INB->src1 << "," << INB->src2 << ">" << endl;
 		}
 		else
 			cout << endl;
@@ -311,8 +333,27 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		else
 			cout << endl;
 		cout << "RGF:";
+		checkRGFNum();
+		for(int i = 0; i < 16; i++)
+		{
+			if(RGF[i] != -1000) {
+				cout << "<R" << i << "," << RGF[i] << ">";
+				if(i != totalRGF)
+					cout << ',';
+			}	
+		}
 		cout << endl;
 		cout << "DAM:";
+		checkDAMNum();
+		for(int i = 0; i < 16; i++)
+		{
+			if(DAM[i] != -1000) {
+				cout << "<R" << i << "," << DAM[i] << ">";
+				if(i != totalDAM)
+					cout << ',';
+			}
+			
+		}
 		cout << endl;	
 		if(isBreak) 
 			break;

@@ -47,6 +47,12 @@ int totalDAM = 0;	//check how many DAM number
 int RGF[16];		//-1000 means no value
 int DAM[16];
 
+/* instruction works one after another (pipline?), need to check before assign value */
+instruction* tempAIB = NULL;
+instruction* tempSIB = NULL;
+instruction* tempPRB = NULL;
+regValue* tempADB = NULL;
+
 /* decode and read one by one */
 
 int read(int regNum) {	return RGF[regNum];  }
@@ -58,19 +64,23 @@ void decode() {
 		tempINB = INM.front();
 		int src1 = INM.front()->src1;
 		int src2 = INM.front()->src2;
+		//cout << "src2 is " << src2 << " and src1 is " << src1 << endl;
 		switch(INM.front()->type)
 		{
-			case 0:		if(src1 != -1000 ) /* not ST, check both src1 and src2 */
-							tempINB->src1 = read(src1);
+			case 0:		if(read(src2) != -1000 ) 	/* not ST, check both src1 and src2 */
+							tempINB->src2 = read(src2);
 						else {
+							tempINB = NULL;
 							break;
 						}
-			case 1:		if(src2 != -1000) { /* ST only need to check src2 */
-							tempINB->src2 = read(src2);
+			case 1:		if(read(src2) != -1000) { /* ST only need to check src2 */
+							tempINB->src1 = read(src1);
 							INM.pop();
 						}
-						else
+						else {
+							tempINB = NULL;
 							break;
+						}			
 		}				
 	}
 	INB = tempINB;
@@ -78,7 +88,15 @@ void decode() {
 
 
 void issue1() {
-
+	if(INB) {	/* need to be careful about the NULL */
+		if(INB->type != 1 ) {
+			AIB = INB;
+		}
+		else
+			AIB = NULL;
+	}
+	else
+		AIB = NULL;
 }
 
 void ASU() {
@@ -167,7 +185,7 @@ void initial(queue<instruction*> &instrContainer) {
 				ss.ignore();
 		}
 		RGF[temVal[0]] = temVal[1];
-		cout << "registers " << temVal[0] << " value is " << RGF[temVal[0]] << endl;
+		//cout << "registers " << temVal[0] << " value is " << RGF[temVal[0]] << endl;
 		temVal.clear();
 	}
 
@@ -193,7 +211,7 @@ void initial(queue<instruction*> &instrContainer) {
 				ss.ignore();
 		}
 		DAM[temVal[0]] = temVal[1];
-		cout << "memory " << temVal[0] << " value is " << DAM[temVal[0]] << endl;
+		//cout << "memory " << temVal[0] << " value is " << DAM[temVal[0]] << endl;
 		temVal.clear();
 	}
 
@@ -206,7 +224,7 @@ void initial(queue<instruction*> &instrContainer) {
             tempfile = tempfile.substr(1, tempfile.length()-3);
         else 
             tempfile = tempfile.substr(1, tempfile.length()-2);
-		cout << tempfile << endl;
+		//cout << tempfile << endl;
 
 		stringstream ss(tempfile);
 		int position = 0;
@@ -222,12 +240,12 @@ void initial(queue<instruction*> &instrContainer) {
 
 				case 0:		if(tokenVal.compare("ST") == 0) {
 								newInstr->type = 1;
-								cout << newInstr->type << "\t";
+								//cout << newInstr->type << "\t";
 							}else {
 								newInstr->type = 0;
 							}
 							newInstr->opcode = tokenVal;
-							cout << newInstr->opcode << " \n";
+							//cout << newInstr->opcode << " \n";
 							break;
 				
 				case 1:		
@@ -247,7 +265,6 @@ void initial(queue<instruction*> &instrContainer) {
 			}
 			position++;
 		}
-		cout << "im herer "<< endl;
 		instrContainer.push(newInstr);
 	}
 }
@@ -291,7 +308,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		else
 			cout << endl;
 		cout << "INB:";
-		if(INB != NULL)
+		if(INB)
 		{
 			 cout << "<" << INB->opcode << ",R" << INB->dest << "," << INB->src1 << "," << INB->src2 << ">" << endl;
 		}
@@ -300,14 +317,13 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		cout << "AIB:";
 		if(AIB)
 		{
-
+			cout << "<" << AIB->opcode << ",R" << AIB->dest << "," << AIB->src1 << "," << AIB->src2 << ">";
 		}
-		else
-			cout << endl;
+		cout << endl;
 		cout << "SIB:";
 		if(SIB)
 		{
-
+			cout << "<" << SIB->opcode << ",R" << SIB->dest << "," << SIB->src1 << "," << SIB->src2 << ">" << endl;
 		}
 		else
 			cout << endl;
@@ -360,7 +376,17 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		if(INM.size() == 0)
 			isBreak = true;
 		cout << endl;
-	}
+
+		decode();		//decode will call read function
+		issue1();
+		issue2();
+		MLU1();
+		adder();
+		store();
+		MLU2(); 		//this include function ASU();
+		write();
+		
+	}	
 }
 
 int main()
@@ -369,7 +395,7 @@ int main()
 	initial(instrContainer);
 	simulatePrint(instrContainer);
 
-	cout << "queue size is " << instrContainer.size() << endl;
+	//cout << "queue size is " << instrContainer.size() << endl;
 
 	return 0;
 }

@@ -68,7 +68,7 @@ void decode() {
 		tempINB = INM.front();
 		int src1 = INM.front()->src1;
 		int src2 = INM.front()->src2;
-		//cout << "src2 is " << src2 << " and src1 is " << src1 << endl;
+		//cout << " INM.front()->type " << INM.front()->type << endl;
 		switch(INM.front()->type)
 		{
 			case 0:		if(read(src2) != -1000 ) 	/* not ST, check both src1 and src2 */
@@ -77,7 +77,7 @@ void decode() {
 							tempINB = NULL;
 							break;
 						}
-			case 1:		if(read(src2) != -1000) { /* ST only need to check src2 */
+			case 1:		if(read(src1) != -1000) { /* ST only need to check src2 */
 							tempINB->src1 = read(src1);
 							INM.pop();
 						}
@@ -87,6 +87,8 @@ void decode() {
 						}			
 		}				
 	}
+	else
+		tempINB = NULL;
 }
 
 
@@ -509,6 +511,12 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		MLU2andAsu(); 	/*this include function ASU() and MLU2()*/
 		write(); 
 		sync();
+
+		/* if there any other instruction */
+		if(INM.size() < 16 && instrContainer.size() > 16) {
+			INM.push(instrContainer.front());
+			instrContainer.pop();
+		}
 		
 	}	
 

@@ -52,13 +52,14 @@ instruction* tempAIB = NULL;
 instruction* tempSIB = NULL;
 instruction* tempPRB = NULL;
 regValue* tempADB = NULL;
+instruction* tempINB = NULL;
 
 /* decode and read one by one */
 
 int read(int regNum) {	return RGF[regNum];  }
 
 void decode() {
-	instruction* tempINB = NULL;
+	
 	if(INM.size() > 0)
 	{
 		tempINB = INM.front();
@@ -83,20 +84,19 @@ void decode() {
 						}			
 		}				
 	}
-	INB = tempINB;
 }
 
 
 void issue1() {
 	if(INB) {	/* need to be careful about the NULL */
 		if(INB->type != 1 ) {
-			AIB = INB;
+			tempAIB = INB;
 		}
 		else
-			AIB = NULL;
+			tempAIB = NULL;
 	}
 	else
-		AIB = NULL;
+		tempAIB = NULL;
 }
 
 void ASU() {
@@ -128,8 +128,13 @@ void write() {
 
 }
 
+void sync() {
+	INB = tempINB;
+	AIB = tempAIB;
+}
+
 void checkRGFNum() {
-	for(int i = 15; i >=0; i--)	{
+	for(int i = 15; i >= 0; i--)	{
 		if(RGF[i] != -1000) {
 			totalRGF = i;
 			break;
@@ -139,7 +144,7 @@ void checkRGFNum() {
 }
 
 void checkDAMNum() {
-	for(int i = 15; i >=0; i--)	{
+	for(int i = 15; i >= 0; i--)	{
 		if(DAM[i] != -1000) {
 			totalDAM = i;
 			break;
@@ -385,6 +390,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		store();
 		MLU2(); 		//this include function ASU();
 		write();
+		sync();
 		
 	}	
 }

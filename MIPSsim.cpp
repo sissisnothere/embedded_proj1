@@ -33,24 +33,46 @@ typedef struct regData {
 	int instrNum;
 }  regValue;
 
-queue<instruction> INM;
+queue<instruction*> INM;
 instruction* INB;
 instruction* AIB;
 instruction* SIB;
 instruction* PRB;
 regValue* ADB;
-queue<instruction> REB;
+queue<instruction*> REB;
 
-int reg[16];		//-1 means no value
-int dataMM[16];
+int RGF[16];		//-1 means no value
+int DAM[16];
+
+/* decode and read one by one */
+
+int read(int regNum) {	return RGF[regNum];  }
 
 void decode() {
-
+	instruction* tempINB = NULL;
+	if(INM.size() > 0)
+	{
+		tempINB = INM.front();
+		int src1 = INM.front()->src1;
+		int src2 = INM.front()->src2;
+		switch(INM.front()->type)
+		{
+			case 0:		if(src1 != -1 ) /* not ST, check both src1 and src2 */
+							tempINB->src1 = read(src1);
+						else {
+							break;
+						}
+			case 1:		if(src2 != -1) { /* ST only need to check src2 */
+							tempINB->src2 = read(src2);
+							INM.pop();
+						}
+						else
+							break;
+		}				
+	}
+	INB = tempINB;
 }
 
-void read() {
-
-}
 
 void issue1() {
 
@@ -85,7 +107,7 @@ void write() {
 
 }
 
-void initial(queue<instruction> &instrContainer) {
+void initial(queue<instruction*> &instrContainer) {
 	ifstream regFile("registers.txt");
 	ifstream dataMMFile("datamemory.txt");
 	ifstream instrFile("instructions.txt");
@@ -98,8 +120,8 @@ void initial(queue<instruction> &instrContainer) {
 	/* inital register value */
 	for(int i = 0; i < 16; i++)
 	{	
-		reg[i] = -1; 
-		dataMM[i] = -1;
+		RGF[i] = -1; 
+		DAM[i] = -1;
 	}
 
 
@@ -122,8 +144,8 @@ void initial(queue<instruction> &instrContainer) {
 			if(ss.peek() == ',')
 				ss.ignore();
 		}
-		reg[temVal[0]] = temVal[1];
-		cout << "registers " << temVal[0] << " value is " << dataMM[temVal[0]] << endl;
+		RGF[temVal[0]] = temVal[1];
+		cout << "registers " << temVal[0] << " value is " << RGF[temVal[0]] << endl;
 		temVal.clear();
 	}
 
@@ -148,8 +170,8 @@ void initial(queue<instruction> &instrContainer) {
 			if(ss.peek() == ',')
 				ss.ignore();
 		}
-		dataMM[temVal[0]] = temVal[1];
-		cout << "memory " << temVal[0] << " value is " << dataMM[temVal[0]] << endl;
+		DAM[temVal[0]] = temVal[1];
+		cout << "memory " << temVal[0] << " value is " << DAM[temVal[0]] << endl;
 		temVal.clear();
 	}
 
@@ -167,7 +189,7 @@ void initial(queue<instruction> &instrContainer) {
 		stringstream ss(tempfile);
 		int position = 0;
 		string tokenVal;
-		instruction newInstr;
+		instruction* newInstr = new instruction; /* has to create new object in order to assign address & value */
 		instructionOrder++;
 
 		/* get token values for the instruction */
@@ -175,38 +197,40 @@ void initial(queue<instruction> &instrContainer) {
 		{
 			switch(position) 
 			{
+
 				case 0:		if(tokenVal.compare("ST") == 0) {
-								newInstr.type = 1;
-								cout << newInstr.type << "\t";
+								newInstr->type = 1;
+								cout << newInstr->type << "\t";
 							}else {
-								newInstr.type = 0;
+								newInstr->type = 0;
 							}
-							newInstr.opcode = tokenVal;
-							cout << newInstr.opcode << " \n";
+							newInstr->opcode = tokenVal;
+							cout << newInstr->opcode << " \n";
 							break;
 				
 				case 1:		
 				case 2:		tokenVal = tokenVal.substr(1, tokenVal.length()-1);
 							
 							if(position == 1) {
-								newInstr.dest = stoi(tokenVal, nullptr);
+								newInstr->dest = stoi(tokenVal, nullptr);
 								
 							}else {
-								newInstr.src1 = stoi(tokenVal, nullptr);
+								newInstr->src1 = stoi(tokenVal, nullptr);
 							}
 							break;
-				case 3:		if(newInstr.type == 0)
+				case 3:		if(newInstr->type == 0)
 								tokenVal = tokenVal.substr(1, tokenVal.length()-1); /* get ride of 'R' */
-							newInstr.src2 = stoi(tokenVal, nullptr);
+							newInstr->src2 = stoi(tokenVal, nullptr);
 				default:	break;
 			}
 			position++;
 		}
+		cout << "im herer "<< endl;
 		instrContainer.push(newInstr);
 	}
 }
 
-void simulatePrint(queue<instruction> instrContainer) {
+void simulatePrint(queue<instruction*> instrContainer) {
 	
 	int step = 0;
 
@@ -227,13 +251,13 @@ void simulatePrint(queue<instruction> instrContainer) {
 		cout << "INM:";
 		if(INM.size() != 0)
 		{
-			queue<instruction> tempInstr (INM);
+			queue<instruction*> tempInstr (INM);
 			for(int i = 0; i < INM.size(); i++)
 			{
-				if(tempInstr.front().type == 0) 
-					cout << "<" << tempInstr.front().opcode << ",R" << tempInstr.front().dest << ",R" << tempInstr.front().src1 << ",R" << tempInstr.front().src2 << ">";		
+				if(tempInstr.front()->type == 0) 
+					cout << "<" << tempInstr.front()->opcode << ",R" << tempInstr.front()->dest << ",R" << tempInstr.front()->src1 << ",R" << tempInstr.front()->src2 << ">";		
 				else
-					cout << "<" << tempInstr.front().opcode << ",R" << tempInstr.front().dest << ",R" << tempInstr.front().src1 << "," << tempInstr.front().src2 << ">";		
+					cout << "<" << tempInstr.front()->opcode << ",R" << tempInstr.front()->dest << ",R" << tempInstr.front()->src1 << "," << tempInstr.front()->src2 << ">";		
 				tempInstr.pop();
 					
 				if(i == INM.size()-1)
@@ -280,7 +304,7 @@ void simulatePrint(queue<instruction> instrContainer) {
 		else
 			cout << endl;
 		cout << "REB:";
-		if(REB.empty())
+		if(!REB.empty())
 		{
 
 		}
@@ -294,12 +318,13 @@ void simulatePrint(queue<instruction> instrContainer) {
 			break;
 		if(INM.size() == 0)
 			isBreak = true;
+		cout << endl;
 	}
 }
 
 int main()
 {
-	queue<instruction> instrContainer;
+	queue<instruction*> instrContainer;
 	initial(instrContainer);
 	simulatePrint(instrContainer);
 

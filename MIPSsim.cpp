@@ -2,7 +2,7 @@
 //	please use g++ -std=c++0x MIPSsim.cpp -o MIPSsim to complie
 
 /*
-	# name: Xixi Ruan
+	# name: Sissi R
 	# course: 
 	# Due: 02/17/2016
 */

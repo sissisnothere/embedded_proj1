@@ -21,9 +21,8 @@ typedef struct instruction {
 	int dest;
 	int src1;
 	int src2;			/* if type is ST, src2 is immediate value */
-	int instructionNo;	/* instruction order */
+	int instructionNo;	/* instruction order (needed to print in instruction order) */
 	int type;			/* 0 is arithmetic value,  1 is ST */
-
 } instruction;
 
 typedef struct regData {
@@ -31,6 +30,10 @@ typedef struct regData {
 	int regValue;
 	bool canWrite;
 	int instrNum;
+	regData(){
+		instrNum = -1000;
+		canWrite = false;
+	}
 }  regValue;
 
 queue<instruction*> INM;
@@ -39,7 +42,7 @@ instruction* AIB;
 instruction* SIB;
 instruction* PRB;
 regValue* ADB;
-queue<instruction*> REB;
+queue<regValue*> REB;
 
 int totalRGF = 0;	//check how many RGF number
 int totalDAM = 0;	//check how many DAM number
@@ -99,29 +102,98 @@ void issue1() {
 		tempAIB = NULL;
 }
 
-void ASU() {
+void ASU(regValue* &tempData) {
+	if(AIB) {
 
+		tempData->regNum = AIB->dest;
+		tempData->instrNum = AIB->instructionNo;
+		//cout<<"there!!!" << endl;
+		if(AIB->opcode.compare("ADD") == 0) {
+			tempData->regValue = AIB->src1 + AIB->src2;
+		}else if(AIB->opcode.compare("SUB") == 0) {
+			tempData->regValue = AIB->src1 - AIB->src2;
+		}
+	}
+	//cout<<"herere!!!" << endl;
 }
 
 void MLU1() {
-
+	if(AIB) {
+		if(AIB->opcode.compare("MUL") == 0) {
+			tempPRB = AIB;
+		}else {
+			tempPRB = NULL;
+		}
+	}
+	
 }
 
-void MLU2() {
+void MLU2(regValue* &tempData) {
+	if(PRB) {
+		tempData->regNum = PRB->dest;
+		tempData->regValue = PRB->src1 * PRB->src2;
+		tempData->instrNum = PRB->instructionNo;
+	}
+}
 
+void MLU2andAsu() {
+	regValue* tempData = new regValue;
+	if(PRB || AIB) {
+		if(PRB && AIB) {
+			regValue* tempData2 = new regValue;
+			if(PRB->instructionNo > AIB->instructionNo)
+			{	
+				/* first ASU then MLU2 */
+				ASU(tempData);			
+				MLU2(tempData2);			
+			}
+			else {
+				/* first MLU2 then ASU */
+				MLU2(tempData);
+				ASU(tempData2);
+			}
+			REB.push(tempData);
+			REB.push(tempData2);
+		}
+		else if(PRB) {
+			MLU2(tempData);
+			REB.push(tempData);
+		}
+		else if(AIB) {
+			ASU(tempData);
+			REB.push(tempData);
+		}
+	}
+	
 }
 
 
 void issue2() {
-
+	if(INB) {
+		if(INB->type == 1 ) {
+			tempSIB = INB;
+		}
+		else
+			tempSIB = NULL;
+	}
+	else
+		tempSIB = NULL;
 }
 
 void adder() {
-
+	if(SIB) {
+		tempADB = new regValue;
+		tempADB->regNum = SIB->dest;
+		tempADB->regValue = SIB->src1 + SIB->src2;
+		tempADB->instrNum = SIB->instructionNo;
+	}else 
+		tempADB = NULL;
 }
 
 void store() {
-
+	if(ADB) {
+		DAM[ADB->regValue] = RGF[ADB->regNum];	/* assume always have data from RPF */
+	}
 }
 
 void write() {
@@ -131,6 +203,10 @@ void write() {
 void sync() {
 	INB = tempINB;
 	AIB = tempAIB;
+	SIB = tempSIB; 
+	PRB = tempPRB;
+	ADB = tempADB;
+
 }
 
 void checkRGFNum() {
@@ -156,7 +232,6 @@ void initial(queue<instruction*> &instrContainer) {
 	ifstream regFile("registers.txt");
 	ifstream dataMMFile("datamemory.txt");
 	ifstream instrFile("instructions.txt");
-	ofstream simulation("simulation.txt");
 
 	bool isBreak = false;
 	string tempfile;
@@ -235,7 +310,8 @@ void initial(queue<instruction*> &instrContainer) {
 		int position = 0;
 		string tokenVal;
 		instruction* newInstr = new instruction; /* has to create new object in order to assign address & value */
-		instructionOrder++;
+		newInstr->instructionNo = instructionOrder++;
+		//instructionOrder++;
 
 		/* get token values for the instruction */
 		while(getline(ss, tokenVal, ','))
@@ -272,10 +348,17 @@ void initial(queue<instruction*> &instrContainer) {
 		}
 		instrContainer.push(newInstr);
 	}
+
+	regFile.close();
+    dataMMFile.close();
+    instrFile.close();
 }
 
 void simulatePrint(queue<instruction*> instrContainer) {
 	
+	ofstream simulation("simulation.txt");
+	streambuf *coutbuffer = cout.rdbuf();
+	//cout.rdbuf(simulation.rdbuf());
 	int step = 0;
 
 	int startInstrNum = (instrContainer.size() >= 16)? 16 : instrContainer.size();
@@ -289,7 +372,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 	} 
 
 	//while(1)
-	for(int j = 0; j < 10; j++)
+	for(int j = 0; j < 16; j++)
 	{
 		cout << "STEP " << step++ << ":" << endl;
 		cout << "INM:";
@@ -304,7 +387,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 					cout << "<" << tempInstr.front()->opcode << ",R" << tempInstr.front()->dest << ",R" << tempInstr.front()->src1 << "," << tempInstr.front()->src2 << ">";		
 				tempInstr.pop();
 					
-				if(i == INM.size()-1)
+				if(i+1 >= INM.size())
 					cout<<endl;
 				else
 					cout<<",";
@@ -315,10 +398,9 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		cout << "INB:";
 		if(INB)
 		{
-			 cout << "<" << INB->opcode << ",R" << INB->dest << "," << INB->src1 << "," << INB->src2 << ">" << endl;
+			 cout << "<" << INB->opcode << ",R" << INB->dest << "," << INB->src1 << "," << INB->src2 << ">";
 		}
-		else
-			cout << endl;
+		cout << endl;
 		cout << "AIB:";
 		if(AIB)
 		{
@@ -328,28 +410,34 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		cout << "SIB:";
 		if(SIB)
 		{
-			cout << "<" << SIB->opcode << ",R" << SIB->dest << "," << SIB->src1 << "," << SIB->src2 << ">" << endl;
+			cout << "<" << SIB->opcode << ",R" << SIB->dest << "," << SIB->src1 << "," << SIB->src2 << ">" ;
 		}
-		else
-			cout << endl;
+		cout << endl;
 		cout << "PRB:";
 		if(PRB)
 		{
-
+			cout << "<" << PRB->opcode << ",R" << PRB->dest << "," << PRB->src1 << "," << PRB->src2 << ">";
 		}
-		else
-			cout << endl;
+		cout << endl;
 		cout << "ADB:";
 		if(ADB)
 		{
-
+			cout << "<R" << ADB->regNum << "," << ADB->regValue << ">";
 		}
-		else
-			cout << endl;
+		cout << endl;
 		cout << "REB:";
 		if(!REB.empty())
 		{
-
+			queue<regValue*> tempREB (REB);
+			for(int i = 0; i < REB.size(); i++)
+			{
+				cout << "<R" << tempREB.front()->regNum << "," << tempREB.front()->regValue << ">";		
+				tempREB.pop();		
+				if(i+1 >= REB.size())
+					cout<<endl;
+				else
+					cout<<",";
+			}
 		}
 		else
 			cout << endl;
@@ -369,7 +457,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		for(int i = 0; i < 16; i++)
 		{
 			if(DAM[i] != -1000) {
-				cout << "<R" << i << "," << DAM[i] << ">";
+				cout << "<" << i << "," << DAM[i] << ">";
 				if(i != totalDAM)
 					cout << ',';
 			}
@@ -382,17 +470,19 @@ void simulatePrint(queue<instruction*> instrContainer) {
 			isBreak = true;
 		cout << endl;
 
-		decode();		//decode will call read function
+		decode();		/* decode will call read function */
 		issue1();
 		issue2();
 		MLU1();
 		adder();
 		store();
-		MLU2(); 		//this include function ASU();
+		MLU2andAsu(); 	/*this include function ASU() and MLU2()*/
 		write();
 		sync();
 		
 	}	
+
+	//cout.rdbuf(coutbuffer);
 }
 
 int main()

@@ -28,21 +28,21 @@ typedef struct instruction {
 typedef struct regData {
 	int regNum;
 	int regValue;
-	bool canWrite;
+	bool canWrite;		/*provent writing and REB ad the same time */
 	int instrNum;
 	regData(){
 		instrNum = -1000;
 		canWrite = false;
 	}
-}  regValue;
+}  regData;
 
 queue<instruction*> INM;
 instruction* INB;
 instruction* AIB;
 instruction* SIB;
 instruction* PRB;
-regValue* ADB;
-queue<regValue*> REB;
+regData* ADB;
+queue<regData*> REB;
 
 int totalRGF = 0;	//check how many RGF number
 int totalDAM = 0;	//check how many DAM number
@@ -54,7 +54,7 @@ int DAM[16];
 instruction* tempAIB = NULL;
 instruction* tempSIB = NULL;
 instruction* tempPRB = NULL;
-regValue* tempADB = NULL;
+regData* tempADB = NULL;
 instruction* tempINB = NULL;
 
 /* decode and read one by one */
@@ -102,9 +102,8 @@ void issue1() {
 		tempAIB = NULL;
 }
 
-void ASU(regValue* &tempData) {
+void ASU(regData* &tempData) {
 	if(AIB) {
-
 		tempData->regNum = AIB->dest;
 		tempData->instrNum = AIB->instructionNo;
 		//cout<<"there!!!" << endl;
@@ -128,40 +127,53 @@ void MLU1() {
 	
 }
 
-void MLU2(regValue* &tempData) {
+void MLU2(regData* &tempData) {
 	if(PRB) {
 		tempData->regNum = PRB->dest;
 		tempData->regValue = PRB->src1 * PRB->src2;
+		//cout << "tempData->regValue is " << tempData->regValue << endl;
 		tempData->instrNum = PRB->instructionNo;
 	}
 }
 
 void MLU2andAsu() {
-	regValue* tempData = new regValue;
+	regData* tempData = new regData();
 	if(PRB || AIB) {
 		if(PRB && AIB) {
-			regValue* tempData2 = new regValue;
-			if(PRB->instructionNo > AIB->instructionNo)
-			{	
-				/* first ASU then MLU2 */
-				ASU(tempData);			
-				MLU2(tempData2);			
-			}
-			else {
-				/* first MLU2 then ASU */
+			if(AIB->opcode.compare("MUL") == 0) {
+				/* skip, do MLU only */
 				MLU2(tempData);
-				ASU(tempData2);
+				REB.push(tempData);
 			}
-			REB.push(tempData);
-			REB.push(tempData2);
+			else
+			{
+				regData* tempData2 = new regData();
+
+				if(PRB->instructionNo > AIB->instructionNo)
+				{	
+					/* first ASU then MLU2 */
+					ASU(tempData);			
+					MLU2(tempData2);			
+				}
+				else {
+					/* first MLU2 then ASU */
+					MLU2(tempData);
+					ASU(tempData2);
+				}
+				REB.push(tempData);
+				REB.push(tempData2);
+			}
+
 		}
 		else if(PRB) {
 			MLU2(tempData);
 			REB.push(tempData);
 		}
 		else if(AIB) {
-			ASU(tempData);
-			REB.push(tempData);
+			if(AIB->opcode.compare("MUL") != 0) {	/* not the MUL */
+				ASU(tempData);
+				REB.push(tempData);
+			}
 		}
 	}
 	
@@ -182,7 +194,7 @@ void issue2() {
 
 void adder() {
 	if(SIB) {
-		tempADB = new regValue;
+		tempADB = new regData();
 		tempADB->regNum = SIB->dest;
 		tempADB->regValue = SIB->src1 + SIB->src2;
 		tempADB->instrNum = SIB->instructionNo;
@@ -197,7 +209,17 @@ void store() {
 }
 
 void write() {
-
+	if(!REB.empty()) {
+		if(REB.front()->canWrite) {
+			RGF[REB.front()->regNum] = REB.front()->regValue;
+			REB.pop();
+			cout << " pop size is " << REB.size() << endl;
+		}
+		else
+		{
+			cout << "i cannot pop" <<endl;
+		}
+	}
 }
 
 void sync() {
@@ -206,6 +228,9 @@ void sync() {
 	SIB = tempSIB; 
 	PRB = tempPRB;
 	ADB = tempADB;
+	if(!REB.empty()) {
+		REB.front()->canWrite = true;
+	}
 
 }
 
@@ -358,7 +383,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 	
 	ofstream simulation("simulation.txt");
 	streambuf *coutbuffer = cout.rdbuf();
-	//cout.rdbuf(simulation.rdbuf());
+	cout.rdbuf(simulation.rdbuf());
 	int step = 0;
 
 	int startInstrNum = (instrContainer.size() >= 16)? 16 : instrContainer.size();
@@ -428,7 +453,7 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		cout << "REB:";
 		if(!REB.empty())
 		{
-			queue<regValue*> tempREB (REB);
+			queue<regData*> tempREB (REB);
 			for(int i = 0; i < REB.size(); i++)
 			{
 				cout << "<R" << tempREB.front()->regNum << "," << tempREB.front()->regValue << ">";		
@@ -477,12 +502,12 @@ void simulatePrint(queue<instruction*> instrContainer) {
 		adder();
 		store();
 		MLU2andAsu(); 	/*this include function ASU() and MLU2()*/
-		write();
+		write(); 
 		sync();
 		
 	}	
 
-	//cout.rdbuf(coutbuffer);
+	cout.rdbuf(coutbuffer);
 }
 
 int main()

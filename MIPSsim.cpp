@@ -123,7 +123,8 @@ void MLU1() {
 		}else {
 			tempPRB = NULL;
 		}
-	}
+	}else
+		tempPRB = NULL;
 	
 }
 
@@ -137,8 +138,8 @@ void MLU2(regData* &tempData) {
 }
 
 void MLU2andAsu() {
-	regData* tempData = new regData();
 	if(PRB || AIB) {
+		regData* tempData = new regData();
 		if(PRB && AIB) {
 			if(AIB->opcode.compare("MUL") == 0) {
 				/* skip, do MLU only */
@@ -231,6 +232,11 @@ void sync() {
 	if(!REB.empty()) {
 		REB.front()->canWrite = true;
 	}
+	if(PRB){
+		cout << "PRB sync now " << endl;
+	}
+
+
 
 }
 
@@ -343,7 +349,6 @@ void initial(queue<instruction*> &instrContainer) {
 		{
 			switch(position) 
 			{
-
 				case 0:		if(tokenVal.compare("ST") == 0) {
 								newInstr->type = 1;
 								//cout << newInstr->type << "\t";
